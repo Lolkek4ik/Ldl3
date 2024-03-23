@@ -5,12 +5,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
+using System.Text.RegularExpressions;
 using static System.Net.Mime.MediaTypeNames;
+using System.Security.Cryptography.X509Certificates;
+using System.Runtime.InteropServices;
 
 namespace Ldl3
 {
     public class git
     {
+        public void commit() { Console.WriteLine("Nothing, for now"); }
+        public void status() { Console.WriteLine("Nothing, for now"); }
 
         public void info(string input) 
         {
@@ -23,11 +28,14 @@ namespace Ldl3
 
             if (File.Exists(fullPath))
             {
-                DateTime crtime = File.GetCreationTime(fullPath);  
+                DateTime crtime = File.GetCreationTime(fullPath); 
+                DateTime uptime = File.GetLastWriteTime(fullPath);
+                
                 Console.WriteLine($"Name:{parts[1]}");
                 Console.WriteLine($"Created on: {crtime}");
+                Console.WriteLine($"Updated on: {uptime}");
             }
-            else {Console.WriteLine($"File {fileName} does not exist");}
+            else {Console.WriteLine($"File {fileName} does not exist"); return; }
 
             string[] ext = fileName.Split(".");
 /*==========================TEXT=====================================TEXT====================================TEXT=========================*/
@@ -68,7 +76,10 @@ namespace Ldl3
                 int lcount = lines.Length;
                 Console.WriteLine($"Lines:{lcount}");
 
-
+                string text = string.Join(" ", lines);
+                int clcount = 0;
+                foreach (string word in text.Split(" ")) { if (word == "class") clcount++;}
+                Console.WriteLine($"Classes in code:{clcount}");
             }
 
 

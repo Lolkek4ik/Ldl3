@@ -11,12 +11,12 @@ namespace Ldl3
 
         start:;
             
-            Console.WriteLine(">");
-            Console.ReadLine();
-            if (input.StartsWith("info ")) { Git.info(input); Console.ReadLine(); goto start; }
-            else if (input == "commit") { Git.commit; Console.ReadLine(); goto start; }
-            else if (input == "status") { Git.status; Console.ReadLine(); goto start; }
-
+            Console.Write(">");
+            input = Console.ReadLine();
+            if (input.StartsWith("info ")) { Git.info(input); goto start; }
+            else if (input == "commit") { Git.commit(); goto start; }
+            else if (input == "status") { Git.status(); goto start; }
+            else if (input == "end") { return; }
             else { Console.WriteLine($"Operation {input} is not a valid operation"); Console.ReadLine(); goto start; }
 
 
