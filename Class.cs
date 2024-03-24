@@ -12,45 +12,102 @@ using System.Runtime.InteropServices;
 
 namespace Ldl3
 {
+    public class GitBackgroundThread
+    {
+        private readonly git gitInstance;
+        private readonly int intervalMilliseconds;
+        private bool isRunning;
+        private Thread backgroundThread;
+
+        public GitBackgroundThread(git gitInstance, int intervalMilliseconds)
+        {
+            this.gitInstance = gitInstance;
+            this.intervalMilliseconds = intervalMilliseconds;
+            this.isRunning = false;
+        }
+
+        public void Start()
+        {
+            if (isRunning)
+                return;
+
+            isRunning = true;
+
+            backgroundThread = new Thread(BackgroundTask);
+            backgroundThread.IsBackground = true;
+            backgroundThread.Start();
+        }
+
+        public void Stop()
+        {
+            isRunning = false;
+        }
+
+        private void BackgroundTask()
+        {
+            while (isRunning)
+            {
+                gitInstance.pasivestatus();
+
+                Thread.Sleep(intervalMilliseconds);
+            }
+        }
+    }
+
+
+
     public class git
     {
-        private string snapshotFilePath = "snapshot.txt"; 
+        private string rootDirectory;
+        private string snapshotFilePath;
+        public git()
+        {
+            rootDirectory = InitializeRootDirectory();
+            string solutionDirectory = Directory.GetParent(rootDirectory).FullName;
+            snapshotFilePath = Path.Combine(solutionDirectory, "snapshot.txt");
+
+        }
+        private string InitializeRootDirectory()
+        {
+            rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj")))
+            {
+                rootDirectory = Directory.GetParent(rootDirectory).FullName;
+            }
+            rootDirectory = Path.Combine(rootDirectory, "test");
+            return rootDirectory;
+        }
 
 
-        public void info(string input) 
+        public void info(string input)
         {
             string[] parts = input.Split('<');
             if (parts[1].EndsWith('>')) { parts[1] = parts[1].Remove(parts[1].LastIndexOf('>')); }
             string fileName = parts[1];
 
 
-            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj"))) 
-            {
-                rootDirectory = Directory.GetParent(rootDirectory).FullName; 
-            }
-            rootDirectory = Path.Combine(rootDirectory, "test"); //Can be changed to the users input with another root, but im too lazy to do it.
-            
-            
+            string rootDirectory = InitializeRootDirectory(); //Can be changed to the users input with another root, but im too lazy to do it.
+
+
             string fullPath = Path.Combine(rootDirectory, fileName);
 
             if (File.Exists(fullPath))
             {
-                DateTime crtime = File.GetCreationTime(fullPath); 
+                DateTime crtime = File.GetCreationTime(fullPath);
                 DateTime uptime = File.GetLastWriteTime(fullPath);
-                
+
                 Console.WriteLine($"Name:{parts[1]}");
                 Console.WriteLine($"Created on: {crtime}");
                 Console.WriteLine($"Updated on: {uptime}");
             }
-            else {Console.WriteLine($"File {fileName} does not exist"); return; }
+            else { Console.WriteLine($"File {fileName} does not exist"); return; }
 
             string[] ext = fileName.Split(".");
-/*==========================TEXT=====================================TEXT====================================TEXT=========================*/
-            if (ext[1]=="txt") 
+            /*==========================TEXT=====================================TEXT====================================TEXT=========================*/
+            if (ext[1] == "txt")
             {
 
-                string[] lines = File.ReadAllLines(fullPath); 
+                string[] lines = File.ReadAllLines(fullPath);
                 int lcount = lines.Length;
                 Console.WriteLine($"Lines:{lcount}");
 
@@ -64,9 +121,9 @@ namespace Ldl3
 
             }
 
-/*==========================IMAGE=====================================IMAGE====================================IMAGE=========================*/
+            /*==========================IMAGE=====================================IMAGE====================================IMAGE=========================*/
 
-            if ((ext[1] == "jpg" || ext[1]=="jpeg") || (ext[1] =="png" || ext[1]== "svg")) 
+            if ((ext[1] == "jpg" || ext[1] == "jpeg") || (ext[1] == "png" || ext[1] == "svg"))
             {
                 using (var bitmap = new Bitmap(fullPath))
                 {
@@ -76,9 +133,9 @@ namespace Ldl3
                 }
             }
 
-/*=========================PROG========================================PROG======================================PROG===========================*/
-            
-            if(ext[1] =="cs" || ext[1] =="java" || ext[1]=="py") 
+            /*=========================PROG========================================PROG======================================PROG===========================*/
+
+            if (ext[1] == "cs" || ext[1] == "java" || ext[1] == "py")
             {
                 string[] lines = File.ReadAllLines(fullPath);
                 int lcount = lines.Length;
@@ -86,7 +143,7 @@ namespace Ldl3
 
                 string text = string.Join(" ", lines);
                 int clcount = 0;
-                foreach (string word in text.Split(" ")) { if (word == "class") clcount++;}
+                foreach (string word in text.Split(" ")) { if (word == "class") clcount++; }
                 Console.WriteLine($"Classes in code:{clcount}");
             }
 
@@ -96,12 +153,7 @@ namespace Ldl3
         /*========================COMMIT====================================COMMIT================================================COMMIT====================*/
         public void commit()
         {
-            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj")))
-            {
-                rootDirectory = Directory.GetParent(rootDirectory).FullName;
-            }
-            rootDirectory = Path.Combine(rootDirectory, "test"); //Can be changed to the users input with another root, but im too lazy to do it.
+            string rootDirectory = InitializeRootDirectory(); //Can be changed to the users input with another root, but im too lazy to do it.
 
             Console.WriteLine($"[SNAPSHOT CREATED AT {DateTime.Now}]");
 
@@ -119,12 +171,12 @@ namespace Ldl3
                 Console.WriteLine($"{Path.GetFileName(file)}");
             }
 
-            
-            
+
+
 
             SaveSnapshot(currentSnapshot);
         }
-/*================LoadPreviousSnapshot====================================LoadPreviousSnapshot================================LoadPreviousSnapshot=================================*/
+        /*================LoadPreviousSnapshot====================================LoadPreviousSnapshot================================LoadPreviousSnapshot=================================*/
         private Dictionary<string, string> LoadPreviousSnapshot()
         {
             Dictionary<string, string> previousSnapshot = new Dictionary<string, string>();
@@ -145,7 +197,7 @@ namespace Ldl3
 
             return previousSnapshot;
         }
-/*=======================SaveSnapshot=====================================SaveSnapshot===========================================SaveSnapshot=================================*/
+        /*=======================SaveSnapshot=====================================SaveSnapshot===========================================SaveSnapshot=================================*/
         private void SaveSnapshot(Dictionary<string, string> currentSnapshot)
         {
             using (StreamWriter writer = new StreamWriter(snapshotFilePath))
@@ -156,7 +208,7 @@ namespace Ldl3
                 }
             }
         }
-/*=================FILEHASH=============================================FILEHASH=====================================================FILEHASH================================*/
+        /*=================FILEHASH=============================================FILEHASH=====================================================FILEHASH================================*/
         private string CalculateFileHash(string filePath)
         {
             using (var md5 = System.Security.Cryptography.MD5.Create())
@@ -169,20 +221,13 @@ namespace Ldl3
             }
         }
 
- /*==================status===================================================status===========================================================status===========================================*/
+        /*==================status===================================================status===========================================================status===========================================*/
 
         public void status()
         {
-            // Load previous snapshot
             Dictionary<string, string> previousSnapshot = LoadPreviousSnapshot();
 
-            // Get current snapshot
-            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj")))
-            {
-                rootDirectory = Directory.GetParent(rootDirectory).FullName;
-            }
-            rootDirectory = Path.Combine(rootDirectory, "test");
+            string rootDirectory = InitializeRootDirectory();
 
             string[] files = Directory.GetFiles(rootDirectory, "*.*", SearchOption.AllDirectories);
             Dictionary<string, string> currentSnapshot = new Dictionary<string, string>();
@@ -203,16 +248,16 @@ namespace Ldl3
                     string previousHash = previousSnapshot[file];
                     if (currentHash != previousHash)
                     {
-                        Console.WriteLine($"File {Path.GetFileName(file)} - Edited");
+                        Console.WriteLine($" {Path.GetFileName(file)} - Edited");
                     }
                     else
                     {
-                        Console.WriteLine($"File {Path.GetFileName(file)} - No changes");
+                        Console.WriteLine($" {Path.GetFileName(file)} - No changes");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"File {Path.GetFileName(file)} - Added");
+                    Console.WriteLine($" {Path.GetFileName(file)} - Added");
                 }
             }
 
@@ -221,10 +266,62 @@ namespace Ldl3
                 string file = kvp.Key;
                 if (!currentSnapshot.ContainsKey(file))
                 {
-                    Console.WriteLine($"File {Path.GetFileName(file)} - Deleted");
+                    Console.WriteLine($" {Path.GetFileName(file)} - Deleted");
                 }
             }
         }
+
+        /*=============================PASIVESTATUS===============================================PASIVESTATUS===================================================PASIVESTATUS===============================*/
+
+        public void pasivestatus()
+        {
+            Dictionary<string, string> previousSnapshot = LoadPreviousSnapshot();
+
+            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj")))
+            {
+                rootDirectory = Directory.GetParent(rootDirectory).FullName;
+            }
+            rootDirectory = Path.Combine(rootDirectory, "test");
+
+            string[] files = Directory.GetFiles(rootDirectory, "*.*", SearchOption.AllDirectories);
+            Dictionary<string, string> currentSnapshot = new Dictionary<string, string>();
+            foreach (string file in files)
+            {
+                string currentHash = CalculateFileHash(file);
+                currentSnapshot[file] = currentHash;
+            }
+
+            foreach (var kvp in currentSnapshot)
+            {
+                string file = kvp.Key;
+                string currentHash = kvp.Value;
+
+                if (previousSnapshot.ContainsKey(file))
+                {
+                    string previousHash = previousSnapshot[file];
+                    if (currentHash != previousHash)
+                    {
+                        Console.Write($" {Path.GetFileName(file)} - Edited \n>");
+                    }
+                    
+                }
+                else
+                {
+                    Console.Write($" {Path.GetFileName(file)} - Added \n>");
+                }
+            }
+
+            foreach (var kvp in previousSnapshot)
+            {
+                string file = kvp.Key;
+                if (!currentSnapshot.ContainsKey(file))
+                {
+                    Console.Write($" {Path.GetFileName(file)} - Deleted \n>");
+                }
+            }
+        }
+
 
     }
 }
