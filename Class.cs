@@ -14,8 +14,8 @@ namespace Ldl3
 {
     public class git
     {
-        public void commit() { Console.WriteLine("Nothing, for now"); }
-        public void status() { Console.WriteLine("Nothing, for now"); }
+        private string snapshotFilePath = "snapshot.txt"; 
+
 
         public void info(string input) 
         {
@@ -23,7 +23,15 @@ namespace Ldl3
             if (parts[1].EndsWith('>')) { parts[1] = parts[1].Remove(parts[1].LastIndexOf('>')); }
             string fileName = parts[1];
 
-            string rootDirectory = @"C:\Users\denis\source\repos\Ldl3\test\";
+
+            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj"))) 
+            {
+                rootDirectory = Directory.GetParent(rootDirectory).FullName; 
+            }
+            rootDirectory = Path.Combine(rootDirectory, "test"); //Can be changed to the users input with another root, but im too lazy to do it.
+            
+            
             string fullPath = Path.Combine(rootDirectory, fileName);
 
             if (File.Exists(fullPath))
@@ -85,5 +93,138 @@ namespace Ldl3
 
 
         }
+        /*========================COMMIT====================================COMMIT================================================COMMIT====================*/
+        public void commit()
+        {
+            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj")))
+            {
+                rootDirectory = Directory.GetParent(rootDirectory).FullName;
+            }
+            rootDirectory = Path.Combine(rootDirectory, "test"); //Can be changed to the users input with another root, but im too lazy to do it.
+
+            Console.WriteLine($"[SNAPSHOT CREATED AT {DateTime.Now}]");
+
+            string[] files = Directory.GetFiles(rootDirectory, "*.*", SearchOption.AllDirectories);
+
+            Dictionary<string, string> currentSnapshot = new Dictionary<string, string>();
+
+            Dictionary<string, string> previousSnapshot = LoadPreviousSnapshot();
+
+            foreach (string file in files)
+            {
+                string currentHash = CalculateFileHash(file);
+
+                currentSnapshot[file] = currentHash;
+                Console.WriteLine($"{Path.GetFileName(file)}");
+            }
+
+            
+            
+
+            SaveSnapshot(currentSnapshot);
+        }
+/*================LoadPreviousSnapshot====================================LoadPreviousSnapshot================================LoadPreviousSnapshot=================================*/
+        private Dictionary<string, string> LoadPreviousSnapshot()
+        {
+            Dictionary<string, string> previousSnapshot = new Dictionary<string, string>();
+
+            if (File.Exists(snapshotFilePath))
+            {
+                string[] lines = File.ReadAllLines(snapshotFilePath);
+
+                foreach (string line in lines)
+                {
+                    string[] parts = line.Split('|');
+                    if (parts.Length == 2)
+                    {
+                        previousSnapshot[parts[0]] = parts[1];
+                    }
+                }
+            }
+
+            return previousSnapshot;
+        }
+/*=======================SaveSnapshot=====================================SaveSnapshot===========================================SaveSnapshot=================================*/
+        private void SaveSnapshot(Dictionary<string, string> currentSnapshot)
+        {
+            using (StreamWriter writer = new StreamWriter(snapshotFilePath))
+            {
+                foreach (var kvp in currentSnapshot)
+                {
+                    writer.WriteLine($"{kvp.Key}|{kvp.Value}");
+                }
+            }
+        }
+/*=================FILEHASH=============================================FILEHASH=====================================================FILEHASH================================*/
+        private string CalculateFileHash(string filePath)
+        {
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                using (var stream = File.OpenRead(filePath))
+                {
+                    byte[] hash = md5.ComputeHash(stream);
+                    return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                }
+            }
+        }
+
+ /*==================status===================================================status===========================================================status===========================================*/
+
+        public void status()
+        {
+            // Load previous snapshot
+            Dictionary<string, string> previousSnapshot = LoadPreviousSnapshot();
+
+            // Get current snapshot
+            string rootDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            while (!Directory.GetFiles(rootDirectory).Any(file => file.EndsWith(".csproj")))
+            {
+                rootDirectory = Directory.GetParent(rootDirectory).FullName;
+            }
+            rootDirectory = Path.Combine(rootDirectory, "test");
+
+            string[] files = Directory.GetFiles(rootDirectory, "*.*", SearchOption.AllDirectories);
+            Dictionary<string, string> currentSnapshot = new Dictionary<string, string>();
+            foreach (string file in files)
+            {
+                string currentHash = CalculateFileHash(file);
+                currentSnapshot[file] = currentHash;
+            }
+
+            Console.WriteLine("State of files since last snapshot:");
+            foreach (var kvp in currentSnapshot)
+            {
+                string file = kvp.Key;
+                string currentHash = kvp.Value;
+
+                if (previousSnapshot.ContainsKey(file))
+                {
+                    string previousHash = previousSnapshot[file];
+                    if (currentHash != previousHash)
+                    {
+                        Console.WriteLine($"File {Path.GetFileName(file)} - Edited");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"File {Path.GetFileName(file)} - No changes");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"File {Path.GetFileName(file)} - Added");
+                }
+            }
+
+            foreach (var kvp in previousSnapshot)
+            {
+                string file = kvp.Key;
+                if (!currentSnapshot.ContainsKey(file))
+                {
+                    Console.WriteLine($"File {Path.GetFileName(file)} - Deleted");
+                }
+            }
+        }
+
     }
 }
